@@ -17,16 +17,17 @@ MODULE_VERSION("0.1");
 /* MAX_LENGTH is set to 92 because
  * ssize_t can't fit the number > 92
  */
-#define MAX_LENGTH 92
+#define MAX_LENGTH 93
 
 static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
+static ktime_t kt;
 
 static long long fib_sequence(long long k)
 {
-    /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel. */
+    /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel.
     long long f[k + 2];
 
     f[0] = 0;
@@ -36,7 +37,30 @@ static long long fib_sequence(long long k)
         f[i] = f[i - 1] + f[i - 2];
     }
 
-    return f[k];
+    return f[k];*/
+    if (k == 0) {
+        return 0;
+    } else if (k <= 2) {
+        return 1;
+    }
+    long long f[2] = {0, 1};
+    int h = 0, count_zero = 0;
+    count_zero = __builtin_clzll(k);
+    h = 64 - count_zero;
+
+    for (int j = h - 1; j >= 0; --j) {
+        long long c = f[0] * (2 * f[1] - f[0]);
+        long long d = f[0] * f[0] + f[1] * f[1];
+
+        if ((k >> j) & 1) {
+            f[0] = d;
+            f[1] = c + d;
+        } else {
+            f[0] = c;
+            f[1] = d;
+        }
+    }
+    return f[0];
 }
 
 static int fib_open(struct inode *inode, struct file *file)
@@ -60,7 +84,10 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_sequence(*offset);
+    kt = ktime_get();
+    long long result = fib_sequence(*offset);
+    kt = ktime_sub(ktime_get(), kt);
+    return (ssize_t) result;
 }
 
 /* write operation is skipped */
@@ -69,7 +96,7 @@ static ssize_t fib_write(struct file *file,
                          size_t size,
                          loff_t *offset)
 {
-    return 1;
+    return ktime_to_ns(kt);
 }
 
 static loff_t fib_device_lseek(struct file *file, loff_t offset, int orig)

@@ -10,7 +10,7 @@ PWD := $(shell pwd)
 GIT_HOOKS := .git/hooks/applied
 
 all: $(GIT_HOOKS) client
-	$(MAKE) -C $(KDIR) M=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$(PWD) CC=x86_64-linux-gnu-gcc modules
 
 $(GIT_HOOKS):
 	@scripts/install-git-hooks
